@@ -1,17 +1,19 @@
 import asyncio
 import websockets
+import typing
 
-
-async def test():
-    print("Hello World")
-
+ADDRESS: str = "localhost"
+PORT: int = 8765
 
 async def echo(websocket, path):
     async for message in websocket:
         print(f"Recieved: {message}")
         await websocket.send(message)
 
-start_server = websockets.serve(echo, "10.0.0.14", 8765)
+print(ADDRESS)
+print(f"With port {PORT}")
+
+start_server = websockets.serve(echo, ADDRESS, PORT)
 
 asyncio.get_event_loop().run_until_complete(start_server)
 
