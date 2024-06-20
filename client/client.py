@@ -8,9 +8,11 @@ import typing
 
 import numpy as np
 import simpleaudio as sa
+import pynput as pn
 import websockets
 from fastapi import FastAPI
 from numpy import ndarray as NDArray
+from pynput.keyboard import Listener, Key
 
 # Constants 
 
@@ -144,6 +146,38 @@ note_freqs = {
     # Octave 8
     'C8': 4186.01
 }
+key_note_mapping = {
+    'Q': 'A4',
+    '2': 'A#0/Bb0',
+    'W': 'B0',
+    'E': 'C1',
+    '4': 'C#1/Db1',
+    'R': 'D1',
+    '5': 'D#1/Eb1',
+    'T': 'E1',
+    'Y': 'F1',
+    '7': 'F#1/Gb1',
+    'U': 'G1',
+    '8': 'G#1/Ab1',
+    'I': 'A1',
+    '9': 'A#1/Bb1',
+    'O': 'B1',
+    'P': 'C2',
+    '-': 'C#2/Db2',
+    '[': 'D2',
+    '=': 'D#2/Eb2',
+    ']': 'E2',
+    '\\': 'F2',
+    'NUMPAD7': 'F#2/Gb2',
+    'NUMPAD8': 'G2',
+    'NUMPAD9': 'G#2/Ab2',
+    'NUMPAD0': 'A2',
+    'NUMPAD-': 'A#2/Bb2',
+    'NUMPAD+': 'B2',
+}
+
+# States
+key_state = {} # Dictionary to keep track of the state of each key (pressed or not)
 
 # Functions
 
@@ -189,11 +223,10 @@ def play_wave(wave: NDArray) -> sa.PlayObject:
 # TODO: Implement play_note and play_sound functions for on press for keyboard keys
 # Play one note for a given duration
 # note: str - note to play
-# duration: float - play note for duration in seconds
-def play_note(note: str, duration: float):
-    wave = generate_wave(note, duration)
+def play_note(note: str):
+    wave = generate_wave(note, 4) # Generate wave for note 
     play_obj = play_wave(wave)
-    play_obj.wait_done()
+    return play_obj # Return the play object to be used for stopping the note
 
 # Play a sequence of notes
 def play_sound():
@@ -208,6 +241,47 @@ def play_sound():
     full_wave = create_and_concatenate_waves(notes_and_durations) # Concatenate all waves and join them together (mux)
     play_obj = play_wave(full_wave)
     play_obj.wait_done()
+    
+
+
+def on_press(key):
+    print(f"Key pressed: {key}")
+    try:
+        key_char = key.char.upper() if hasattr(key, 'char') and key.char else ''
+        if key_char in key_note_mapping and key_char not in key_state:
+            print(f"Starting note: {key_note_mapping[key_char]}")
+            play_obj = play_note(key_note_mapping[key_char])
+            key_state[key_char] = play_obj # Store the play object in the dictionary
+    except AttributeError as e:
+        print(f"Error in key press: {e}")
+        pass
+
+def on_release(key):
+    print(f"Key released: {key}")
+    try:
+        key_char = key.char.upper() if hasattr(key, 'char') and key.char else ''
+        if key_char in key_state:
+            print(f"Stopping note: {key_note_mapping[key_char]}")
+            key_state[key_char].stop()
+            del key_state[key_char]  # Remove the key from the tracking dictionary
+            print("done")
+    except AttributeError as e:
+        print(f"Error in key release: {e}")
+        pass
+
+def play_sound_on_key_press():
+    # Start listening for key presses
+    with Listener(on_press=on_press, on_release=on_release) as listener:
+        print("Listener joined")
+        listener.join()
+
+# Function to start the key listener in a separate thread
+def start_key_listener():
+    listener_thread = threading.Thread(target=play_sound_on_key_press)
+    listener_thread.start()
+    print("Listener thread started")
+    return listener_thread
+
 
 # Websocket chat functions for chatting to server
 async def chat():
@@ -223,13 +297,17 @@ async def chat():
     except ConnectionRefusedError:
         print("client.py:223: Connection refused. Make sure server is running.")
 
+
 # app = FastAPI()
 # Play sound in the thread to allow async websocket communication
-sound_thread = threading.Thread(target=play_sound)
-sound_thread.start()
+#sound_thread = threading.Thread(target=play_sound)
+#sound_thread.start()
+
+# Start key listener in separate thread
+start_key_listener()
 # Websocket Event Loop
 asyncio.get_event_loop().run_until_complete(chat())
 
-sound_thread.join() # Wait for sound thread to finish
+#sound_thread.join() # Wait for sound thread to finish
 
 
