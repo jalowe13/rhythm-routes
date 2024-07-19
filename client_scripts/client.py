@@ -2,19 +2,27 @@
 # Jacob Lowe
 # Create sounds and connect to server to send messages
 
+import sys
+import platform
 import asyncio
 import threading
 import typing
 
 import numpy as np
 import simpleaudio as sa
-import pynput as pn
 import websockets
 from fastapi import FastAPI
 from numpy import ndarray as NDArray
-from pynput.keyboard import Listener, Key
 
-# Constants 
+# Input Imports based on system
+OS_NAME: str = platform.system().lower()
+print(OS_NAME)
+if (OS_NAME == 'linux'):
+    import evdev
+else:
+    import pynput as pn
+from pynput.keyboard import Listener, Key
+# Constants
 
 # Websockets Constants
 # Craft websocket path
@@ -38,14 +46,14 @@ SAMPLE_WIDTH: int = 2 # Sample width in bytes (16-bit PCM)
 SAMPLE_RATE: int = 44100 # Sample rate in Hz (44.1 kHz)
 
 # Sound Frequency Constants
-# Boilerplate generated note frequencies 
+# Boilerplate generated note frequencies
 note_freqs = {
     # Octave 0
     'A0': 27.50,
     'A#0': 29.14,
     'B0': 30.87,
 
-    # Octave 1 
+    # Octave 1
     'C1': 32.70,
     'C#1': 34.65,
     'D1': 36.71,
@@ -174,6 +182,7 @@ key_note_mapping = {
     'NUMPAD0': 'A2',
     'NUMPAD-': 'A#2/Bb2',
     'NUMPAD+': 'B2',
+    'TAB': 'C3',
 }
 
 # States
@@ -224,7 +233,7 @@ def play_wave(wave: NDArray) -> sa.PlayObject:
 # Play one note for a given duration
 # note: str - note to play
 def play_note(note: str):
-    wave = generate_wave(note, 4) # Generate wave for note 
+    wave = generate_wave(note, 4) # Generate wave for note
     play_obj = play_wave(wave)
     return play_obj # Return the play object to be used for stopping the note
 
@@ -237,11 +246,11 @@ def play_sound():
                             ('A4', 0.25), ('A4', 0.25), ('A4', 0.25), ('A4', 0.25),
                             ('B4', 0.5), ('A4', 0.5), ('G4', 1),
                            ]
-    
+
     full_wave = create_and_concatenate_waves(notes_and_durations) # Concatenate all waves and join them together (mux)
     play_obj = play_wave(full_wave)
     play_obj.wait_done()
-    
+
 
 
 def on_press(key):
@@ -306,8 +315,6 @@ async def chat():
 # Start key listener in separate thread
 start_key_listener()
 # Websocket Event Loop
-asyncio.get_event_loop().run_until_complete(chat())
+# asyncio.get_event_loop().run_until_complete(chat())
 
 #sound_thread.join() # Wait for sound thread to finish
-
-
